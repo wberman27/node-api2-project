@@ -30,13 +30,16 @@ router.get('/:id', (req, res) =>{
 })
 
 router.post('/', (req, res) =>{
-    const newPost = req.body
-    if((!newPost.title || !newPost.contents)){
+    const {title, contents} = req.body
+    if((!title || !contents)){
         res.status(400).json({ message: "Please provide title and contents for the post" })
     }else{
-        Posts.insert(newPost)
-        .then(()=>{
-            res.status(201).json(newPost)
+        Posts.insert({title, contents})
+        .then((post)=>{
+            return Posts.findById(post.id)
+            .then(post =>{
+                res.status(201).json(post)
+            })
         })
         .catch(() =>{
             res.status(500).json({ message: "There was an ()or while saving the post to the database" })
@@ -47,37 +50,49 @@ router.post('/', (req, res) =>{
 router.put('/:id', (req, res) =>{
     const {id} = req.params
     const changes = req.body
-    if(!changes){
-        res.status(404).json({ message: "The post with the specified ID does not exist" })
-    }else{
-        if(!changes.title || !changes.contents){
-            res.status(400).json({ message: "Please provide title and contents for the post" })
+    Posts.findById(id)
+    .then(post =>{
+        if(!post){
+            res.status(404).json({ message: "The post with the specified ID does not exist" })
         }else{
-            Posts.update(id, changes)
-            .then(() =>{
-                res.status(200).json(id)
-            })
-            .catch(() =>{
-                res.status(500).json({ message: "The post information could not be modified" })
-            })
+            if(!changes.title || !changes.contents){
+                res.status(400).json({ message: "Please provide title and contents for the post" })
+            }else{
+                Posts.update(id, changes)
+                .then(updatedPostId =>{
+                    return Posts.findById(updatedPostId)
+                    .then(post =>{
+                        res.status(200).json(post)
+                    })
+                })
+            }
+
         }
-    }
+    })
+    .catch(() =>{
+        res.status(500).json({ message: "The post information could not be modified" })
+    })
 })
 
 router.delete('/:id', (req, res) =>{
     const {id} = req.params
-    const deletedPost = req.body
-    if(!deletedPost){
-        res.status(404).json({ message: "The post with the specified ID does not exist" })
-    }else{
-        Posts.remove(id)
-        .then(()=>{
-            res.status(201).json(deletedPost)
-        })
-        .catch(() =>{
-            res.status(500).json({ message: "The post could not be removed" })
-        })
-    }
+    Posts.findById(id)
+    .then(post =>{
+        if(!post){
+            res.status(404).json({ message: "The post with the specified ID does not exist" })
+        }else{
+            Posts.remove(id)
+            .then(postId =>{
+                return Posts.findById(postId)
+                .then(() =>{
+                    res.json(post)
+                })
+            })
+        }
+    })
+    .catch(()=>{
+        res.status(500).json({ message: "The post could not be removed" })
+    })
 })
 
 router.get('/:id/comments', (req, res) =>{
